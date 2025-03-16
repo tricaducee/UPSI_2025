@@ -1,0 +1,31 @@
+#include "principal.h"
+
+void text_cleanup() {
+    // Free the "Hello World" texture
+    if (gAll.textTexture) {
+        SDL_DestroyTexture(gAll.textTexture);
+        gAll.textTexture = NULL; // Avoid dangling pointer
+    }
+
+    // Close the loaded font
+    if (gAll.font) {
+        TTF_CloseFont(gAll.font);
+        gAll.font = NULL; // Avoid dangling pointer
+    }
+
+    // Shut down the SDL_ttf subsystem
+    TTF_Quit();
+}
+
+void text_render() {
+    // Clear the screen
+    SDL_SetRenderDrawColor(gAll.renderer, 0, 0, 0, 255);
+    SDL_RenderClear(gAll.renderer);
+
+    // Render "Hello World"
+    SDL_Rect textRect = {50, 50, 200, 50}; // Adjust position and size as needed
+    SDL_RenderCopy(gAll.renderer, gAll.textTexture, NULL, &textRect);
+
+    // Update the screen
+    SDL_RenderPresent(gAll.renderer);
+}

@@ -1,92 +1,221 @@
 #include "principal.h"
 
-#ifdef __EMSCRIPTEN__
-#include <emscripten.h>
-#endif
+All	gAll;
+int running;
 
-All gAll;
-int running = 1;
-
-// Fonction pour gérer une frame du rendu
-void main_loop(void)
-{
-    SDL_Event event;
-
-    // Gestion des événements
-    while (SDL_PollEvent(&event))
+int initImgs() {
+    const char *imgPath[IMG_TOTAL] = {
+        [IMG_EGO] = "assets/images/ego.png",
+        [IMG_AVIS] = "assets/images/avis.png",
+        [IMG_CHRISTIAN] = "assets/images/Christian.png"
+    };
+    for (int i = 0; i < IMG_TOTAL; i++)
     {
-        if (event.type == SDL_QUIT)
+        gAll.img[i] = IMG_Load(imgPath[i]);
+        if (!gAll.img[i])
         {
-            running = 0;
-
-            #ifdef __EMSCRIPTEN__
-            emscripten_cancel_main_loop();
-            #endif
+            fprintf(stderr, "Erreur chargement surface (%s) : %s\n",
+                    imgPath[i], IMG_GetError());
+            for (int j = 0; j < i; j++)
+            {
+                SDL_FreeSurface(gAll.img[j]);
+                gAll.img[j] = NULL;
+            }
+            printf("coucou\n");
+            return (-1);
         }
     }
-
-    // Définition de la couleur rouge
-    SDL_SetRenderDrawColor(gAll.renderer, 255, 0, 0, 255);
-
-    // Nettoyage de l'écran avec la couleur définie
-    SDL_RenderClear(gAll.renderer);
-
-    // Mise à jour de l'affichage
-    SDL_RenderPresent(gAll.renderer);
+    return (0);
 }
 
-int main(int argc, char *argv[])
+int updateImg(WindowsList *windowList, int newImgID)
 {
-    // Initialisation de la SDL (vidéo uniquement)
-    if (SDL_Init(SDL_INIT_VIDEO) != 0)
-    {
-        printf("Erreur SDL_Init : %s\n", SDL_GetError());
-        return 1;
+    SDL_Texture *newTexture = SDL_CreateTextureFromSurface(windowList->renderer, gAll.img[newImgID]);
+    if (!newTexture)
+        return (-1);
+    if (windowList->texture)
+        SDL_DestroyTexture(windowList->texture);
+    windowList->texture = newTexture;
+    //Affiché la texture dans la fenêtre
+    SDL_RenderClear(windowList->renderer);
+    SDL_RenderCopy(windowList->renderer, windowList->texture, NULL, NULL);
+    SDL_RenderPresent(windowList->renderer);
+    return (0);
+    
+}
+
+int initGame() {
+    if (SDL_Init(SDL_INIT_VIDEO)) {
+        fprintf(stderr, "Erreur SDL_Init : %s\n", SDL_GetError());
+        return -1;
     }
-
-    // Création de la fenêtre
-    gAll.window = SDL_CreateWindow(
-        "Fenêtre Rouge SDL2 (Emscripten Compatible)",
-        SDL_WINDOWPOS_CENTERED,
-        SDL_WINDOWPOS_CENTERED,
-        800,
-        600,
-        SDL_WINDOW_SHOWN
-    );
-
-    if (gAll.window == NULL)
+	if (!(IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG)) {
+		fprintf(stderr, "Erreur IMG_Init : %s\n", IMG_GetError());
+		SDL_Quit();
+		return -1;
+	}
+    if (initImgs())
     {
-        printf("Erreur SDL_CreateWindow : %s\n", SDL_GetError());
+        fprintf(stderr, "Erreur initImgs : %s\n", SDL_GetError());
+        IMG_Quit();
         SDL_Quit();
-        return 1;
+        return -1;
     }
+    gAll.windows = NULL;
+    gAll.windowsCount = 0;
+    gAll.nextWinId = 1;
+    gAll.score = 0;
+    return 0;
+}
 
-    // Création du gAll.renderer
-    gAll.renderer = SDL_CreateRenderer(gAll.window, -1, SDL_RENDERER_ACCELERATED);
-    if (gAll.renderer == NULL)
-    {
-        printf("Erreur SDL_CreateRenderer : %s\n", SDL_GetError());
-        SDL_DestroyWindow(gAll.window);
-        SDL_Quit();
-        return 1;
+int destroyAll(int code) {
+    gAll.winCursor = gAll.windows;
+    WindowsList *tmp;
+
+    while (gAll.winCursor) {
+        if (gAll.winCursor->window)
+            SDL_DestroyWindow(gAll.winCursor->window);
+        if (gAll.winCursor->renderer)
+            SDL_DestroyRenderer(gAll.winCursor->renderer);
+        if (gAll.winCursor->texture)
+            SDL_DestroyTexture(gAll.winCursor->texture);
+        tmp = gAll.winCursor;
+        gAll.winCursor = gAll.winCursor->next;
+        free(tmp);
     }
+    for (int i = 0; i < IMG_TOTAL; i++)
+        SDL_FreeSurface(gAll.img[i]);
+	IMG_Quit();
+    SDL_Quit();
+	return (code);
+}
 
-    #ifdef __EMSCRIPTEN__
-    // Boucle principale via emscripten (pour web)
-    emscripten_set_main_loop(main_loop, 0, 1);
-    #else
-    // Boucle principale classique (Mac, Linux, Windows)
-    while (running)
+WindowsList	*createWindow(char *windowName, int posX, int posY, int imgID)
+{
+	SDL_Window	*newWindow = SDL_CreateWindow(windowName, posX, posY, gAll.img[imgID]->w, gAll.img[imgID]->h, SDL_WINDOW_SHOWN);
+
+	if (!newWindow) {
+        fprintf(stderr, "Erreur création fenêtre : %s\n", SDL_GetError());
+        return NULL;
+    }
+    SDL_Renderer *newRenderer = SDL_CreateRenderer(newWindow, -1, SDL_RENDERER_ACCELERATED);
+    if (!newRenderer) {
+        fprintf(stderr, "Erreur création renderer : %s\n", SDL_GetError());
+        SDL_DestroyWindow(newWindow);
+        return NULL;
+    }
+    SDL_Texture *newTexture = SDL_CreateTextureFromSurface(newRenderer, gAll.img[imgID]);
+    if (!newTexture)
     {
-        main_loop();
+        fprintf(stderr, "Erreur création texture : %s\n", SDL_GetError());
+        SDL_DestroyWindow(newWindow);
+        SDL_DestroyRenderer(newRenderer);
+        return (NULL);
+    }
+	WindowsList	*newWinList = malloc(sizeof(WindowsList));
+	if (!newWinList)
+	{
+		fprintf(stderr, "Erreur malloc fenêtre list");
+		SDL_DestroyWindow(newWindow);
+        SDL_DestroyRenderer(newRenderer);
+        SDL_DestroyTexture(newTexture);
+		return NULL;
+	}
+	newWinList->id = gAll.nextWinId++;
+	newWinList->window = newWindow;
+    newWinList->renderer = newRenderer;
+    newWinList->texture = newTexture;
+    //Affiché la texture dans la fenêtre
+    SDL_RenderClear(newWinList->renderer);
+    SDL_RenderCopy(newWinList->renderer, newWinList->texture, NULL, NULL);
+    SDL_RenderPresent(newWinList->renderer);
+	newWinList->previous = NULL;
+	if (!gAll.windows)
+		gAll.windows = newWinList;
+	else
+	{
+		gAll.winCursor = gAll.windows;
+		gAll.windows = newWinList;
+		gAll.windows->next = gAll.winCursor;
+	}
+	++gAll.windowsCount;
+	return (newWinList);
+}
+
+// Fonction pour récupérer une fenêtre à partir de son SDL_WindowID
+WindowsList *getWindowById(Uint32 windowID) {
+	gAll.winCursor = gAll.windows;
+    while (gAll.winCursor) {
+        if (SDL_GetWindowID(gAll.winCursor->window) == windowID)
+            return gAll.winCursor;
+        gAll.winCursor = gAll.winCursor->next;
+    }
+    return NULL;
+}
+
+void    closeWindow(WindowsList *windowElem)
+{
+    WindowsList *winToDel = windowElem;
+    if (!windowElem->previous)
+    {
+        gAll.windows = windowElem->next;
+        if (gAll.windows)
+            gAll.windows->previous = NULL;
+    }
+    else
+    {
+        windowElem = windowElem->next;
+        windowElem->previous = windowElem->previous->previous;
+    }
+    if (winToDel->window)
+        SDL_DestroyWindow(winToDel->window);
+    if (winToDel->renderer)
+        SDL_DestroyRenderer(winToDel->renderer);
+    if (winToDel->texture)
+        SDL_DestroyTexture(winToDel->texture);
+    --gAll.windowsCount;
+    ++gAll.score;
+    free(winToDel);
+}
+
+void    eventWhile(SDL_Event *event)
+{
+    while (SDL_PollEvent(event)) {
+        switch (event->type) {
+            case SDL_QUIT:
+                running = 0;
+                break;
+
+            case SDL_WINDOWEVENT:
+            {
+                WindowsList *eventWindow = getWindowById(event->window.windowID);
+                if (!eventWindow)
+                    break;
+                if (event->window.event == SDL_WINDOWEVENT_ENTER) {
+                    printf("Fenêtre survolée : ID = %d\n", eventWindow->id);
+                    // Action spécifique ici
+                } else if (event->window.event == SDL_WINDOWEVENT_CLOSE)
+                    closeWindow(eventWindow);
+                break;
+            }
+        }
+    }
+}
+
+int main(void) {
+
+    if (initGame())
+        return -1;
+
+    if (!createWindow("Hello", 0, 0, IMG_EGO) || !createWindow("World", 400, 300, IMG_AVIS))
+		return (destroyAll(1));
+
+    running = 1;
+    SDL_Event event;
+    while (running) {
+        eventWhile(&event);
+
         SDL_Delay(16); // ~60 FPS
     }
-    #endif
-
-    // Libération des ressources
-    SDL_DestroyRenderer(gAll.renderer);
-    SDL_DestroyWindow(gAll.window);
-    SDL_Quit();
-
-    return 0;
+    return (destroyAll(0));
 }
