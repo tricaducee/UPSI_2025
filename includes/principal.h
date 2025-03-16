@@ -10,6 +10,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+# define TIME_TO_WAIT 2000
+# define ACCELERATION 10
+# define MIN_TIME_TO_WAIT 200
+
 enum
 {
 	IMG_CHRISTIAN,
@@ -45,6 +49,7 @@ typedef struct all
 	int					windowsCount;
 	int					nextWinId;
 	int					score;
+	Uint32				time;
 	SDL_Surface 		*img[IMG_TOTAL];
 	WindowsList			*windows;
 	WindowsList			*winCursor;

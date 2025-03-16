@@ -178,8 +178,23 @@ void    closeWindow(WindowsList *windowElem)
     free(winToDel);
 }
 
+int    simpleWindowEvent(Uint8 event, WindowsList *eventWindow)
+{
+    if (event == SDL_WINDOWEVENT_ENTER) {
+        updateImg(eventWindow, IMG_EGO);
+        // Action spécifique ici
+    } else if (event == SDL_WINDOWEVENT_LEAVE) {
+        updateImg(eventWindow, IMG_AVIS);
+        // Action spécifique ici
+    } else if (event == SDL_WINDOWEVENT_CLOSE)
+        closeWindow(eventWindow);
+    return (0);
+}
+
 void    eventWhile(SDL_Event *event)
 {
+    WindowsList *eventWindow;
+
     while (SDL_PollEvent(event)) {
         switch (event->type) {
             case SDL_QUIT:
@@ -188,18 +203,21 @@ void    eventWhile(SDL_Event *event)
 
             case SDL_WINDOWEVENT:
             {
-                WindowsList *eventWindow = getWindowById(event->window.windowID);
+                eventWindow = getWindowById(event->window.windowID);
                 if (!eventWindow)
                     break;
-                if (event->window.event == SDL_WINDOWEVENT_ENTER) {
-                    printf("Fenêtre survolée : ID = %d\n", eventWindow->id);
-                    // Action spécifique ici
-                } else if (event->window.event == SDL_WINDOWEVENT_CLOSE)
-                    closeWindow(eventWindow);
+                simpleWindowEvent(event->window.event, eventWindow);
                 break;
             }
         }
     }
+}
+
+int    simpleWindowCreate()
+{
+    if (!createWindow("World", 400, 300, IMG_AVIS))
+        return (-1);
+    return (0);
 }
 
 int main(void) {
@@ -207,7 +225,7 @@ int main(void) {
     if (initGame())
         return -1;
 
-    if (!createWindow("Hello", 0, 0, IMG_EGO) || !createWindow("World", 400, 300, IMG_AVIS))
+    if (simpleWindowCreate())
 		return (destroyAll(1));
 
     running = 1;
