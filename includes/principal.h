@@ -14,13 +14,21 @@
 # define TIME_TO_WAIT 2000
 # define ACCELERATION 10
 # define MIN_TIME_TO_WAIT 200
-# define WINDOWS_COUNT_END 50
+# define WINDOWS_COUNT_END 10
+
+enum
+{
+	F_SIMPLE,
+	F_CHRISTIAN,
+	F_TOTAL
+};
 
 enum
 {
 	IMG_CHRISTIAN,
 	IMG_EGO,
 	IMG_AVIS,
+	IMG_GAMEOVER,
 	IMG_TOTAL
 };
 
@@ -41,12 +49,19 @@ typedef struct windowsList
 	SDL_Window			*window;     // Fenêtre principale
 	SDL_Renderer		*renderer;
 	SDL_Texture			*texture;
+	Mix_Chunk			*audio1;
+	Mix_Chunk			*audio2;
 	int					id;
+	int					funcID;
 	int					pngId;
-	int					oggId;
 	struct windowsList	*next;
 	struct windowsList	*previous;
 }						WindowsList;
+
+int	simpleWindowCreate();
+int	simpleWindowEvent(SDL_Event *event, WindowsList *eventWindow);
+int christianWindowCreate();
+int	christianWindowEvent(SDL_Event *event, WindowsList *eventWindow);
 
 typedef struct all
 {	
@@ -60,6 +75,8 @@ typedef struct all
 	Coor				screenSize;
 	Uint32				time;
 	Uint32				waitingTime;
+	int 				(*newWindow[F_TOTAL])();
+	int 				(*eventWindow[F_TOTAL])(SDL_Event *, WindowsList *);
 	SDL_Surface 		*img[IMG_TOTAL];
 	WindowsList			*windows;
 	WindowsList			*winCursor;
@@ -68,8 +85,6 @@ typedef struct all
 extern All	gAll;
 extern int	running;
 
-int playMusic(const char *filename);
-void stopMusic();
 // void text_cleanup();
 // void text_render();
 

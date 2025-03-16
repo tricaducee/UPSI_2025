@@ -1,13 +1,24 @@
 #include "principal.h"
 
-All	gAll;
+All	gAll = {
+    .newWindow = {
+        [F_SIMPLE] = simpleWindowCreate,
+        [F_CHRISTIAN] = christianWindowCreate
+    },
+    .eventWindow = {
+        [F_SIMPLE] = simpleWindowEvent,
+        [F_CHRISTIAN] = christianWindowEvent
+    }
+};
+
 int running;
 
 int initImgs() {
     const char *imgPath[IMG_TOTAL] = {
         [IMG_EGO] = "assets/images/ego.png",
         [IMG_AVIS] = "assets/images/avis.png",
-        [IMG_CHRISTIAN] = "assets/images/Christian.png"
+        [IMG_CHRISTIAN] = "assets/images/Christian.png",
+        [IMG_GAMEOVER] = "assets/images/GameOver.png"
     };
     for (int i = 0; i < IMG_TOTAL; i++)
     {
@@ -45,7 +56,7 @@ int updateImg(WindowsList *windowList, int newImgID)
 }
 
 int initGame() {
-    if (SDL_Init(SDL_INIT_VIDEO)) {
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
         fprintf(stderr, "Erreur SDL_Init : %s\n", SDL_GetError());
         return -1;
     }
@@ -54,9 +65,17 @@ int initGame() {
 		SDL_Quit();
 		return -1;
 	}
+    if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0)
+    {
+        printf("Erreur d'initialisation de SDL_mixer : %s\n", Mix_GetError());
+        IMG_Quit();
+        SDL_Quit();
+        return -1;
+    }
     if (initImgs())
     {
         fprintf(stderr, "Erreur initImgs : %s\n", SDL_GetError());
+        Mix_CloseAudio();
         IMG_Quit();
         SDL_Quit();
         return -1;
@@ -85,19 +104,29 @@ int destroyAll(int code) {
             SDL_DestroyRenderer(gAll.winCursor->renderer);
         if (gAll.winCursor->texture)
             SDL_DestroyTexture(gAll.winCursor->texture);
+        if (gAll.winCursor->audio1)
+            Mix_FreeChunk(gAll.winCursor->audio1);
+        if (gAll.winCursor->audio2)
+            Mix_FreeChunk(gAll.winCursor->audio2);
         tmp = gAll.winCursor;
         gAll.winCursor = gAll.winCursor->next;
         free(tmp);
     }
     for (int i = 0; i < IMG_TOTAL; i++)
         SDL_FreeSurface(gAll.img[i]);
+    Mix_CloseAudio();
 	IMG_Quit();
     SDL_Quit();
 	return (code);
 }
 
-WindowsList *createWindow(char *windowName, int posX, int posY, int imgID)
+WindowsList *createWindow(char *windowName, int posX, int posY, int imgID, int funcID, char *audioName1, char *audioName2)
 {
+    if (gAll.windowsCount >= WINDOWS_COUNT_END)
+    {
+        running = 0;
+        return (NULL);
+    }
     SDL_Window *newWindow = SDL_CreateWindow(windowName, posX, posY,
         gAll.img[imgID]->w, gAll.img[imgID]->h, SDL_WINDOW_SHOWN);
     if (!newWindow) {
@@ -117,6 +146,37 @@ WindowsList *createWindow(char *windowName, int posX, int posY, int imgID)
         SDL_DestroyRenderer(newRenderer);
         return NULL;
     }
+    Mix_Chunk   *newAudio1;
+    if (audioName1)
+    {
+        newAudio1 = Mix_LoadWAV(audioName1);
+        if (!newAudio1)
+        {
+            fprintf(stderr, "Erreur création audio : %s : %s\n", audioName1, SDL_GetError());
+            SDL_DestroyWindow(newWindow);
+            SDL_DestroyRenderer(newRenderer);
+            SDL_DestroyTexture(newTexture);
+            return NULL;
+        }
+    }
+    else
+        newAudio1 = NULL;
+    Mix_Chunk   *newAudio2;
+    if (audioName2)
+    {
+        newAudio2 = Mix_LoadWAV(audioName2);
+        if (!newAudio2)
+        {
+            fprintf(stderr, "Erreur création audio : %s : %s\n", audioName2, SDL_GetError());
+            Mix_FreeChunk(newAudio1);
+            SDL_DestroyWindow(newWindow);
+            SDL_DestroyRenderer(newRenderer);
+            SDL_DestroyTexture(newTexture);
+            return NULL;
+        }
+    }
+    else
+        newAudio2 = NULL;
     WindowsList *newWinList = malloc(sizeof(WindowsList));
     if (!newWinList) {
         fprintf(stderr, "Erreur malloc fenêtre list\n");
@@ -126,13 +186,16 @@ WindowsList *createWindow(char *windowName, int posX, int posY, int imgID)
         return NULL;
     }
     newWinList->id = gAll.nextWinId++;
+    newWinList->funcID = funcID;
     newWinList->window = newWindow;
     newWinList->renderer = newRenderer;
     newWinList->texture = newTexture;
+    newWinList->audio1 = newAudio1;
+    newWinList->audio2 = newAudio2;
     newWinList->previous = NULL;
     newWinList->next = gAll.windows;  // Insère en tête
     if (gAll.windows)
-    gAll.windows->previous = newWinList;
+        gAll.windows->previous = newWinList;
     gAll.windows = newWinList;
     //Affiché la texture dans la fenêtre
     SDL_RenderClear(newWinList->renderer);
@@ -226,6 +289,10 @@ void closeWindow(WindowsList *windowElem)
         SDL_DestroyRenderer(windowElem->renderer);
     if (windowElem->texture)
         SDL_DestroyTexture(windowElem->texture);
+    if (windowElem->audio1)
+        Mix_FreeChunk(windowElem->audio1);
+    if (windowElem->audio2)
+        Mix_FreeChunk(windowElem->audio2);
 
     --gAll.windowsCount;
     ++gAll.score;
@@ -254,6 +321,28 @@ int    simpleWindowEvent(SDL_Event *event, WindowsList *eventWindow)
     return (0);
 }
 
+int    christianWindowEvent(SDL_Event *event, WindowsList *eventWindow)
+{
+    switch (event->type) {
+        case SDL_WINDOWEVENT:
+            if (event->window.event == SDL_WINDOWEVENT_ENTER) {
+                // updateImg(eventWindow, IMG_CHRISTIAN);
+                closeWindow(eventWindow);
+                // Action spécifique ici
+            } else if (event->window.event == SDL_WINDOWEVENT_LEAVE) {
+                //updateImg(eventWindow, IMG_CHRISTIAN);
+                // Action spécifique ici
+                //closeWindow(eventWindow);
+            } else if (event->window.event == SDL_WINDOWEVENT_CLOSE)
+                closeWindow(eventWindow);
+            break ;
+        case SDL_MOUSEBUTTONDOWN:
+            closeWindow(eventWindow);
+            break ;
+    }
+    return (0);
+}
+
 void    eventWhile(SDL_Event *event)
 {
     WindowsList *eventWindow;
@@ -269,7 +358,7 @@ void    eventWhile(SDL_Event *event)
                 eventWindow = getWindowById(event->window.windowID);
                 if (!eventWindow)
                     break;
-                simpleWindowEvent(event, eventWindow);
+                gAll.eventWindow[eventWindow->funcID](event, eventWindow);
                 break;
             }
             case SDL_MOUSEBUTTONDOWN:
@@ -277,17 +366,26 @@ void    eventWhile(SDL_Event *event)
                 eventWindow = getWindowById(event->button.windowID);
                 if (!eventWindow)
                     break;
-                    simpleWindowEvent(event, eventWindow);
+                    gAll.eventWindow[eventWindow->funcID](event, eventWindow);
                 break;
             }
         }
     }
 }
 
-int    simpleWindowCreate()
+int simpleWindowCreate()
 {
-    if (!createWindow("www.arnaque.com", rand() % (gAll.screenSize.x - gAll.img[IMG_AVIS]->w), rand() % (gAll.screenSize.y - gAll.img[IMG_AVIS]->h), IMG_AVIS))
+    if (!createWindow("www.arnaque.com", rand() % (gAll.screenSize.x - gAll.img[IMG_AVIS]->w), rand() % (gAll.screenSize.y - gAll.img[IMG_AVIS]->h), IMG_AVIS, F_SIMPLE, NULL, NULL))
         return (-1);
+    return (0);
+}
+
+int christianWindowCreate()
+{
+    WindowsList *windowList = createWindow("Sexy girl", rand() % (gAll.screenSize.x - gAll.img[IMG_CHRISTIAN]->w), rand() % (gAll.screenSize.y - gAll.img[IMG_CHRISTIAN]->h), IMG_CHRISTIAN, F_CHRISTIAN, "assets/audio/mmh.ogg", NULL);
+    if (!windowList)
+        return (-1);
+    Mix_PlayChannel(-1, windowList->audio1, 0);
     return (0);
 }
 
@@ -307,12 +405,31 @@ int main(void) {
         sdlTick = SDL_GetTicks();
         if (sdlTick - gAll.time >= gAll.waitingTime)
         {
-            simpleWindowCreate();
+            if (gAll.newWindow[rand() % F_TOTAL]())
+                break ;
             gAll.time = sdlTick;
             if (gAll.waitingTime - ACCELERATION <= MIN_TIME_TO_WAIT)
                 gAll.waitingTime = MIN_TIME_TO_WAIT;
             else
                 gAll.waitingTime -= ACCELERATION;
+        }
+        SDL_Delay(16); // ~60 FPS
+    }
+    running = 1;
+    gAll.windowsCount -= 2;
+    createWindow("Game Over", (gAll.screenSize.x - gAll.img[IMG_GAMEOVER]->w) / 2, (gAll.screenSize.y - gAll.img[IMG_GAMEOVER]->h) / 2, IMG_GAMEOVER, 0, NULL, NULL);
+    gAll.windowsCount += 2;
+    while (running) {
+        while (SDL_PollEvent(&event)) {
+            switch (event.type) {
+                case SDL_QUIT:
+                    running = 0;
+                    break;
+                case SDL_WINDOWEVENT:
+                    if (event.window.event == SDL_WINDOWEVENT_CLOSE)
+                        running = 0;
+                    break ;
+            }
         }
         SDL_Delay(16); // ~60 FPS
     }
