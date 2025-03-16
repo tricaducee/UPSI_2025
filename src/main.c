@@ -4,14 +4,20 @@ All	gAll = {
     .newWindow = {
         [F_SIMPLE] = simpleWindowCreate,
         [F_CHRISTIAN] = christianWindowCreate,
+        [F_BOMBA] = bombaWindowCreate,
         [F_YAMETE] = yameteWindowCreate,
-        [F_GOAT] = goatWindowCreate
+        [F_GOAT] = goatWindowCreate,
+        [F_TIGRE] = tigreWindowCreate,
+        [F_ERROR] = errorWindowCreate
     },
     .eventWindow = {
         [F_SIMPLE] = simpleWindowEvent,
         [F_CHRISTIAN] = christianWindowEvent,
+        [F_BOMBA] = bombaWindowEvent,
         [F_YAMETE] = yameteWindowEvent,
-        [F_GOAT] = goatWindowEvent
+        [F_GOAT] = goatWindowEvent,
+        [F_TIGRE] = tigreWindowEvent,
+        [F_ERROR] = errorWindowEvent
     }
 };
 
@@ -22,11 +28,14 @@ int initImgs() {
         [IMG_EGO] = "assets/images/ego.png",
         [IMG_AVIS] = "assets/images/avis.png",
         [IMG_CHRISTIAN] = "assets/images/Christian.png",
+        [IMG_BOMBA] = "assets/images/bombe.png",
         [IMG_GAMEOVER] = "assets/images/GameOver.png",
         [IMG_YAMETE1] = "assets/images/yamete1.png",
         [IMG_YAMETE2] = "assets/images/yamete2.png",
         [IMG_GOAT1] = "assets/images/goat1.png",
-        [IMG_GOAT2] = "assets/images/goat2.png"
+        [IMG_GOAT2] = "assets/images/goat2.png",
+        [IMG_ERROR] = "assets/images/error.png",
+        [IMG_TIGRE] = "assets/images/tigre.png"
     };
     for (int i = 0; i < IMG_TOTAL; i++)
     {
@@ -352,6 +361,27 @@ int    christianWindowEvent(SDL_Event *event, WindowsList *eventWindow)
     return (0);
 }
 
+int    bombaWindowEvent(SDL_Event *event, WindowsList *eventWindow)
+{
+    switch (event->type) {
+        case SDL_WINDOWEVENT:
+            if (event->window.event == SDL_WINDOWEVENT_ENTER) {
+                //closeWindow(eventWindow);
+                // Action spécifique ici
+            } else if (event->window.event == SDL_WINDOWEVENT_LEAVE) {
+                // updateImg(eventWindow, IMG_BOMBA);
+                // Action spécifique ici
+                closeWindow(eventWindow);
+            } else if (event->window.event == SDL_WINDOWEVENT_CLOSE)
+                closeWindow(eventWindow);
+            break ;
+        case SDL_MOUSEBUTTONDOWN:
+            closeWindow(eventWindow);
+            break ;
+    }
+    return (0);
+}
+
 int    yameteWindowEvent(SDL_Event *event, WindowsList *eventWindow)
 {
     switch (event->type) {
@@ -383,6 +413,44 @@ int    goatWindowEvent(SDL_Event *event, WindowsList *eventWindow)
             } else if (event->window.event == SDL_WINDOWEVENT_LEAVE) {
                 updateImg(eventWindow, IMG_GOAT1);
                 // Action spécifique ici
+                //closeWindow(eventWindow);
+            } else if (event->window.event == SDL_WINDOWEVENT_CLOSE)
+                closeWindow(eventWindow);
+            break ;
+        case SDL_MOUSEBUTTONDOWN:
+            closeWindow(eventWindow);
+            break ;
+    }
+    return (0);
+}
+
+int errorWindowEvent(SDL_Event *event, WindowsList *eventWindow)
+{
+    switch (event->type) {
+        case SDL_WINDOWEVENT:
+            if (event->window.event == SDL_WINDOWEVENT_CLOSE)
+                closeWindow(eventWindow);
+            break ;
+        case SDL_MOUSEBUTTONDOWN:
+            closeWindow(eventWindow);
+            break ;
+    }
+    return (0);
+}
+
+int    tigreWindowEvent(SDL_Event *event, WindowsList *eventWindow)
+{
+    switch (event->type) {
+        case SDL_WINDOWEVENT:
+            if (event->window.event == SDL_WINDOWEVENT_ENTER) {
+                //pdateImg(eventWindow, IMG_BETE);
+                //updateImg(eventWindow, IMG_GOAT2);
+                Mix_PlayChannel(-1, eventWindow->audio1, 0);
+                // Action spécifique ici
+            } else if (event->window.event == SDL_WINDOWEVENT_LEAVE) {
+                //updateImg(eventWindow, IMG_TIGRE);
+                // Action spécifique ici
+                Mix_PlayChannel(-1, eventWindow->audio2, 0);
                 //closeWindow(eventWindow);
             } else if (event->window.event == SDL_WINDOWEVENT_CLOSE)
                 closeWindow(eventWindow);
@@ -440,6 +508,15 @@ int christianWindowCreate()
     return (0);
 }
 
+int bombaWindowCreate()
+{
+    WindowsList *windowList = createWindow("Matte ste bombe", rand() % (gAll.screenSize.x - gAll.img[IMG_BOMBA]->w), rand() % (gAll.screenSize.y - gAll.img[IMG_BOMBA]->h), IMG_BOMBA, F_BOMBA, "assets/audio/bombe.ogg", NULL);
+    if (!windowList)
+        return (-1);
+    Mix_PlayChannel(-1, windowList->audio1, 0);
+    return (0);
+}
+
 int yameteWindowCreate()
 {
     WindowsList *windowList = createWindow("Kawaii desu ne", rand() % (gAll.screenSize.x - gAll.img[IMG_YAMETE1]->w), rand() % (gAll.screenSize.y - gAll.img[IMG_YAMETE1]->h), IMG_YAMETE1, F_YAMETE, "assets/audio/yamete.ogg", NULL);
@@ -456,12 +533,35 @@ int goatWindowCreate()
     return (0);
 }
 
+int tigreWindowCreate()
+{
+    WindowsList *windowList = createWindow("Le caca c'est délicieux", rand() % (gAll.screenSize.x - gAll.img[IMG_TIGRE]->w), rand() % (gAll.screenSize.y - gAll.img[IMG_TIGRE]->h), IMG_TIGRE, F_TIGRE, "assets/audio/pasfolle.ogg", "assets/audio/tigre.ogg");
+    if (!windowList)
+        return (-1);
+    return (0);
+}
+
+int errorWindowCreate()
+{
+    WindowsList *windowList = createWindow("Critical Error", rand() % (gAll.screenSize.x - gAll.img[IMG_ERROR]->w), rand() % (gAll.screenSize.y - gAll.img[IMG_ERROR]->h), IMG_ERROR, F_ERROR, "assets/audio/error.ogg", NULL);
+    if (!windowList)
+        return (-1);
+    Mix_PlayChannel(-1, windowList->audio1, 0);
+    return (0);
+}
+
 int main(void) {
 
     if (initGame())
         return -1;
 
-    if (simpleWindowCreate())
+    if (errorWindowCreate())
+		return (destroyAll(1));
+    SDL_Delay(250);
+    if (errorWindowCreate())
+		return (destroyAll(1));
+    SDL_Delay(180);
+    if (errorWindowCreate())
 		return (destroyAll(1));
     running = 1;
     SDL_Event   event;
@@ -484,7 +584,7 @@ int main(void) {
     }
     running = 1;
     gAll.windowsCount -= 2;
-    createWindow("Game Over", (gAll.screenSize.x - gAll.img[IMG_GAMEOVER]->w) / 2, (gAll.screenSize.y - gAll.img[IMG_GAMEOVER]->h) / 2, IMG_GAMEOVER, 0, NULL, NULL);
+    Mix_PlayChannel(-1, createWindow("Game Over", (gAll.screenSize.x - gAll.img[IMG_GAMEOVER]->w) / 2, (gAll.screenSize.y - gAll.img[IMG_GAMEOVER]->h) / 2, IMG_GAMEOVER, 0, "assets/audio/mario.ogg", NULL)->audio1, 0);
     gAll.windowsCount += 2;
     while (running) {
         while (SDL_PollEvent(&event)) {

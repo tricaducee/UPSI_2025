@@ -11,17 +11,20 @@
 #include <stdio.h>
 #include <time.h>
 
-# define TIME_TO_WAIT 2000
-# define ACCELERATION 10
+# define TIME_TO_WAIT 1800
+# define ACCELERATION 25
 # define MIN_TIME_TO_WAIT 200
-# define WINDOWS_COUNT_END 10
+# define WINDOWS_COUNT_END 50
 
 enum
 {
 	F_SIMPLE,
 	F_CHRISTIAN,
+	F_BOMBA,
 	F_YAMETE,
 	F_GOAT,
+	F_TIGRE,
+	F_ERROR,
 	F_TOTAL
 };
 
@@ -35,13 +38,10 @@ enum
 	IMG_YAMETE2,
 	IMG_GOAT1,
 	IMG_GOAT2,
+	IMG_BOMBA,
+	IMG_TIGRE,
+	IMG_ERROR,
 	IMG_TOTAL
-};
-
-enum
-{
-	AUDIO_BASE,
-	AUDIO_TOTAL
 };
 
 typedef struct coor
@@ -72,13 +72,19 @@ int yameteWindowCreate();
 int	yameteWindowEvent(SDL_Event *event, WindowsList *eventWindow);
 int goatWindowCreate();
 int	goatWindowEvent(SDL_Event *event, WindowsList *eventWindow);
+int bombaWindowCreate();
+int	bombaWindowEvent(SDL_Event *event, WindowsList *eventWindow);
+int tigreWindowCreate();
+int	tigreWindowEvent(SDL_Event *event, WindowsList *eventWindow);
+int errorWindowCreate();
+int	errorWindowEvent(SDL_Event *event, WindowsList *eventWindow);
 
 typedef struct all
 {	
 	SDL_Renderer		*renderer; // Renderer principal
 	Mix_Music			*music;		// Musique du jeu
-	//TTF_Font			*font; // Police pour le texte
-	//SDL_Texture			*textTexture; // Texture pour le texte "H
+	TTF_Font			*font; // Police pour le texte
+	SDL_Texture			*textTexture; // Texture pour le texte "H
 	int					windowsCount;
 	int					nextWinId;
 	int					score;
