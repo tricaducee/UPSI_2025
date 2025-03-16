@@ -9,10 +9,12 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <time.h>
 
 # define TIME_TO_WAIT 2000
 # define ACCELERATION 10
 # define MIN_TIME_TO_WAIT 200
+# define WINDOWS_COUNT_END 50
 
 enum
 {
@@ -27,6 +29,12 @@ enum
 	AUDIO_BASE,
 	AUDIO_TOTAL
 };
+
+typedef struct coor
+{
+	int	x;
+	int	y;
+}		Coor;
 
 typedef struct windowsList
 {
@@ -49,7 +57,9 @@ typedef struct all
 	int					windowsCount;
 	int					nextWinId;
 	int					score;
+	Coor				screenSize;
 	Uint32				time;
+	Uint32				waitingTime;
 	SDL_Surface 		*img[IMG_TOTAL];
 	WindowsList			*windows;
 	WindowsList			*winCursor;

@@ -61,10 +61,16 @@ int initGame() {
         SDL_Quit();
         return -1;
     }
+    SDL_Rect    screen;
+    SDL_GetDisplayBounds(0, &screen);
+    gAll.screenSize.x = screen.w;
+    gAll.screenSize.y = screen.h;
     gAll.windows = NULL;
     gAll.windowsCount = 0;
     gAll.nextWinId = 1;
     gAll.score = 0;
+    gAll.time = 0;
+    gAll.waitingTime = TIME_TO_WAIT;
     return 0;
 }
 
@@ -90,11 +96,11 @@ int destroyAll(int code) {
 	return (code);
 }
 
-WindowsList	*createWindow(char *windowName, int posX, int posY, int imgID)
+WindowsList *createWindow(char *windowName, int posX, int posY, int imgID)
 {
-	SDL_Window	*newWindow = SDL_CreateWindow(windowName, posX, posY, gAll.img[imgID]->w, gAll.img[imgID]->h, SDL_WINDOW_SHOWN);
-
-	if (!newWindow) {
+    SDL_Window *newWindow = SDL_CreateWindow(windowName, posX, posY,
+        gAll.img[imgID]->w, gAll.img[imgID]->h, SDL_WINDOW_SHOWN);
+    if (!newWindow) {
         fprintf(stderr, "Erreur création fenêtre : %s\n", SDL_GetError());
         return NULL;
     }
@@ -105,42 +111,88 @@ WindowsList	*createWindow(char *windowName, int posX, int posY, int imgID)
         return NULL;
     }
     SDL_Texture *newTexture = SDL_CreateTextureFromSurface(newRenderer, gAll.img[imgID]);
-    if (!newTexture)
-    {
+    if (!newTexture) {
         fprintf(stderr, "Erreur création texture : %s\n", SDL_GetError());
         SDL_DestroyWindow(newWindow);
         SDL_DestroyRenderer(newRenderer);
-        return (NULL);
+        return NULL;
     }
-	WindowsList	*newWinList = malloc(sizeof(WindowsList));
-	if (!newWinList)
-	{
-		fprintf(stderr, "Erreur malloc fenêtre list");
-		SDL_DestroyWindow(newWindow);
+    WindowsList *newWinList = malloc(sizeof(WindowsList));
+    if (!newWinList) {
+        fprintf(stderr, "Erreur malloc fenêtre list\n");
+        SDL_DestroyWindow(newWindow);
         SDL_DestroyRenderer(newRenderer);
         SDL_DestroyTexture(newTexture);
-		return NULL;
-	}
-	newWinList->id = gAll.nextWinId++;
-	newWinList->window = newWindow;
+        return NULL;
+    }
+    newWinList->id = gAll.nextWinId++;
+    newWinList->window = newWindow;
     newWinList->renderer = newRenderer;
     newWinList->texture = newTexture;
+    newWinList->previous = NULL;
+    newWinList->next = gAll.windows;  // Insère en tête
+    if (gAll.windows)
+    gAll.windows->previous = newWinList;
+    gAll.windows = newWinList;
     //Affiché la texture dans la fenêtre
     SDL_RenderClear(newWinList->renderer);
     SDL_RenderCopy(newWinList->renderer, newWinList->texture, NULL, NULL);
     SDL_RenderPresent(newWinList->renderer);
-	newWinList->previous = NULL;
-	if (!gAll.windows)
-		gAll.windows = newWinList;
-	else
-	{
-		gAll.winCursor = gAll.windows;
-		gAll.windows = newWinList;
-		gAll.windows->next = gAll.winCursor;
-	}
-	++gAll.windowsCount;
-	return (newWinList);
+    ++gAll.windowsCount;
+    return newWinList;
 }
+
+// WindowsList	*createWindow(char *windowName, int posX, int posY, int imgID)
+// {
+// 	SDL_Window	*newWindow = SDL_CreateWindow(windowName, posX, posY, gAll.img[imgID]->w, gAll.img[imgID]->h, SDL_WINDOW_SHOWN);
+
+// 	if (!newWindow) {
+//         fprintf(stderr, "Erreur création fenêtre : %s\n", SDL_GetError());
+//         return NULL;
+//     }
+//     SDL_Renderer *newRenderer = SDL_CreateRenderer(newWindow, -1, SDL_RENDERER_ACCELERATED);
+//     if (!newRenderer) {
+//         fprintf(stderr, "Erreur création renderer : %s\n", SDL_GetError());
+//         SDL_DestroyWindow(newWindow);
+//         return NULL;
+//     }
+//     SDL_Texture *newTexture = SDL_CreateTextureFromSurface(newRenderer, gAll.img[imgID]);
+//     if (!newTexture)
+//     {
+//         fprintf(stderr, "Erreur création texture : %s\n", SDL_GetError());
+//         SDL_DestroyWindow(newWindow);
+//         SDL_DestroyRenderer(newRenderer);
+//         return (NULL);
+//     }
+// 	WindowsList	*newWinList = malloc(sizeof(WindowsList));
+// 	if (!newWinList)
+// 	{
+// 		fprintf(stderr, "Erreur malloc fenêtre list");
+// 		SDL_DestroyWindow(newWindow);
+//         SDL_DestroyRenderer(newRenderer);
+//         SDL_DestroyTexture(newTexture);
+// 		return NULL;
+// 	}
+// 	newWinList->id = gAll.nextWinId++;
+// 	newWinList->window = newWindow;
+//     newWinList->renderer = newRenderer;
+//     newWinList->texture = newTexture;
+//     //Affiché la texture dans la fenêtre
+//     SDL_RenderClear(newWinList->renderer);
+//     SDL_RenderCopy(newWinList->renderer, newWinList->texture, NULL, NULL);
+//     SDL_RenderPresent(newWinList->renderer);
+// 	newWinList->previous = NULL;
+// 	if (!gAll.windows)
+// 		gAll.windows = newWinList;
+// 	else
+// 	{
+// 		gAll.winCursor = gAll.windows;
+// 		gAll.windows = newWinList;
+// 		gAll.windows->next = gAll.winCursor;
+// 	}
+// 	++gAll.windowsCount;
+// 	return (newWinList);
+// }
 
 // Fonction pour récupérer une fenêtre à partir de son SDL_WindowID
 WindowsList *getWindowById(Uint32 windowID) {
@@ -153,41 +205,52 @@ WindowsList *getWindowById(Uint32 windowID) {
     return NULL;
 }
 
-void    closeWindow(WindowsList *windowElem)
+void closeWindow(WindowsList *windowElem)
 {
-    WindowsList *winToDel = windowElem;
-    if (!windowElem->previous)
-    {
-        gAll.windows = windowElem->next;
-        if (gAll.windows)
-            gAll.windows->previous = NULL;
-    }
+    if (!windowElem)
+        return;
+
+    // Mise à jour des pointeurs de la liste
+    if (windowElem->previous)
+        windowElem->previous->next = windowElem->next;
     else
-    {
-        windowElem = windowElem->next;
-        windowElem->previous = windowElem->previous->previous;
-    }
-    if (winToDel->window)
-        SDL_DestroyWindow(winToDel->window);
-    if (winToDel->renderer)
-        SDL_DestroyRenderer(winToDel->renderer);
-    if (winToDel->texture)
-        SDL_DestroyTexture(winToDel->texture);
+        gAll.windows = windowElem->next;  // Si c'est le premier élément, mettre à jour la tête
+
+    if (windowElem->next)
+        windowElem->next->previous = windowElem->previous;
+
+    // Libération des ressources SDL associées
+    if (windowElem->window)
+        SDL_DestroyWindow(windowElem->window);
+    if (windowElem->renderer)
+        SDL_DestroyRenderer(windowElem->renderer);
+    if (windowElem->texture)
+        SDL_DestroyTexture(windowElem->texture);
+
     --gAll.windowsCount;
     ++gAll.score;
-    free(winToDel);
+
+    free(windowElem);
 }
 
-int    simpleWindowEvent(Uint8 event, WindowsList *eventWindow)
+int    simpleWindowEvent(SDL_Event *event, WindowsList *eventWindow)
 {
-    if (event == SDL_WINDOWEVENT_ENTER) {
-        updateImg(eventWindow, IMG_EGO);
-        // Action spécifique ici
-    } else if (event == SDL_WINDOWEVENT_LEAVE) {
-        updateImg(eventWindow, IMG_AVIS);
-        // Action spécifique ici
-    } else if (event == SDL_WINDOWEVENT_CLOSE)
-        closeWindow(eventWindow);
+    switch (event->type) {
+        case SDL_WINDOWEVENT:
+            if (event->window.event == SDL_WINDOWEVENT_ENTER) {
+                updateImg(eventWindow, IMG_EGO);
+                // Action spécifique ici
+            } else if (event->window.event == SDL_WINDOWEVENT_LEAVE) {
+                updateImg(eventWindow, IMG_AVIS);
+                // Action spécifique ici
+                //closeWindow(eventWindow);
+            } else if (event->window.event == SDL_WINDOWEVENT_CLOSE)
+                closeWindow(eventWindow);
+            break ;
+        case SDL_MOUSEBUTTONDOWN:
+            closeWindow(eventWindow);
+            break ;
+    }
     return (0);
 }
 
@@ -206,7 +269,15 @@ void    eventWhile(SDL_Event *event)
                 eventWindow = getWindowById(event->window.windowID);
                 if (!eventWindow)
                     break;
-                simpleWindowEvent(event->window.event, eventWindow);
+                simpleWindowEvent(event, eventWindow);
+                break;
+            }
+            case SDL_MOUSEBUTTONDOWN:
+            {
+                eventWindow = getWindowById(event->button.windowID);
+                if (!eventWindow)
+                    break;
+                    simpleWindowEvent(event, eventWindow);
                 break;
             }
         }
@@ -215,7 +286,7 @@ void    eventWhile(SDL_Event *event)
 
 int    simpleWindowCreate()
 {
-    if (!createWindow("World", 400, 300, IMG_AVIS))
+    if (!createWindow("www.arnaque.com", rand() % (gAll.screenSize.x - gAll.img[IMG_AVIS]->w), rand() % (gAll.screenSize.y - gAll.img[IMG_AVIS]->h), IMG_AVIS))
         return (-1);
     return (0);
 }
@@ -227,12 +298,22 @@ int main(void) {
 
     if (simpleWindowCreate())
 		return (destroyAll(1));
-
     running = 1;
-    SDL_Event event;
+    SDL_Event   event;
+    Uint32      sdlTick;
+    gAll.time = SDL_GetTicks();
     while (running) {
         eventWhile(&event);
-
+        sdlTick = SDL_GetTicks();
+        if (sdlTick - gAll.time >= gAll.waitingTime)
+        {
+            simpleWindowCreate();
+            gAll.time = sdlTick;
+            if (gAll.waitingTime - ACCELERATION <= MIN_TIME_TO_WAIT)
+                gAll.waitingTime = MIN_TIME_TO_WAIT;
+            else
+                gAll.waitingTime -= ACCELERATION;
+        }
         SDL_Delay(16); // ~60 FPS
     }
     return (destroyAll(0));
