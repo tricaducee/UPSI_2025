@@ -3,11 +3,15 @@
 All	gAll = {
     .newWindow = {
         [F_SIMPLE] = simpleWindowCreate,
-        [F_CHRISTIAN] = christianWindowCreate
+        [F_CHRISTIAN] = christianWindowCreate,
+        [F_YAMETE] = yameteWindowCreate,
+        [F_GOAT] = goatWindowCreate
     },
     .eventWindow = {
         [F_SIMPLE] = simpleWindowEvent,
-        [F_CHRISTIAN] = christianWindowEvent
+        [F_CHRISTIAN] = christianWindowEvent,
+        [F_YAMETE] = yameteWindowEvent,
+        [F_GOAT] = goatWindowEvent
     }
 };
 
@@ -18,7 +22,11 @@ int initImgs() {
         [IMG_EGO] = "assets/images/ego.png",
         [IMG_AVIS] = "assets/images/avis.png",
         [IMG_CHRISTIAN] = "assets/images/Christian.png",
-        [IMG_GAMEOVER] = "assets/images/GameOver.png"
+        [IMG_GAMEOVER] = "assets/images/GameOver.png",
+        [IMG_YAMETE1] = "assets/images/yamete1.png",
+        [IMG_YAMETE2] = "assets/images/yamete2.png",
+        [IMG_GOAT1] = "assets/images/goat1.png",
+        [IMG_GOAT2] = "assets/images/goat2.png"
     };
     for (int i = 0; i < IMG_TOTAL; i++)
     {
@@ -90,6 +98,7 @@ int initGame() {
     gAll.score = 0;
     gAll.time = 0;
     gAll.waitingTime = TIME_TO_WAIT;
+    srand(time(NULL));
     return 0;
 }
 
@@ -343,6 +352,48 @@ int    christianWindowEvent(SDL_Event *event, WindowsList *eventWindow)
     return (0);
 }
 
+int    yameteWindowEvent(SDL_Event *event, WindowsList *eventWindow)
+{
+    switch (event->type) {
+        case SDL_WINDOWEVENT:
+            if (event->window.event == SDL_WINDOWEVENT_LEAVE) {
+                updateImg(eventWindow, IMG_YAMETE1);
+                // Action spécifique ici
+                //closeWindow(eventWindow);
+            } else if (event->window.event == SDL_WINDOWEVENT_CLOSE)
+                closeWindow(eventWindow);
+            break ;
+        case SDL_MOUSEBUTTONDOWN:
+            updateImg(eventWindow, IMG_YAMETE2);
+            Mix_PlayChannel(-1, eventWindow->audio1, 0);
+            break ;
+    }
+    return (0);
+}
+
+int    goatWindowEvent(SDL_Event *event, WindowsList *eventWindow)
+{
+    switch (event->type) {
+        case SDL_WINDOWEVENT:
+            if (event->window.event == SDL_WINDOWEVENT_ENTER) {
+                // updateImg(eventWindow, IMG_CHRISTIAN);
+                updateImg(eventWindow, IMG_GOAT2);
+                Mix_PlayChannel(-1, eventWindow->audio1, 0);
+                // Action spécifique ici
+            } else if (event->window.event == SDL_WINDOWEVENT_LEAVE) {
+                updateImg(eventWindow, IMG_GOAT1);
+                // Action spécifique ici
+                //closeWindow(eventWindow);
+            } else if (event->window.event == SDL_WINDOWEVENT_CLOSE)
+                closeWindow(eventWindow);
+            break ;
+        case SDL_MOUSEBUTTONDOWN:
+            closeWindow(eventWindow);
+            break ;
+    }
+    return (0);
+}
+
 void    eventWhile(SDL_Event *event)
 {
     WindowsList *eventWindow;
@@ -386,6 +437,22 @@ int christianWindowCreate()
     if (!windowList)
         return (-1);
     Mix_PlayChannel(-1, windowList->audio1, 0);
+    return (0);
+}
+
+int yameteWindowCreate()
+{
+    WindowsList *windowList = createWindow("Kawaii desu ne", rand() % (gAll.screenSize.x - gAll.img[IMG_YAMETE1]->w), rand() % (gAll.screenSize.y - gAll.img[IMG_YAMETE1]->h), IMG_YAMETE1, F_YAMETE, "assets/audio/yamete.ogg", NULL);
+    if (!windowList)
+        return (-1);
+    return (0);
+}
+
+int goatWindowCreate()
+{
+    WindowsList *windowList = createWindow("The Goat", rand() % (gAll.screenSize.x - gAll.img[IMG_GOAT1]->w), rand() % (gAll.screenSize.y - gAll.img[IMG_GOAT1]->h), IMG_GOAT1, F_GOAT, "assets/audio/goat.ogg", NULL);
+    if (!windowList)
+        return (-1);
     return (0);
 }
 

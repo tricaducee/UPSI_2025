@@ -20,6 +20,8 @@ enum
 {
 	F_SIMPLE,
 	F_CHRISTIAN,
+	F_YAMETE,
+	F_GOAT,
 	F_TOTAL
 };
 
@@ -29,6 +31,10 @@ enum
 	IMG_EGO,
 	IMG_AVIS,
 	IMG_GAMEOVER,
+	IMG_YAMETE1,
+	IMG_YAMETE2,
+	IMG_GOAT1,
+	IMG_GOAT2,
 	IMG_TOTAL
 };
 
@@ -62,6 +68,10 @@ int	simpleWindowCreate();
 int	simpleWindowEvent(SDL_Event *event, WindowsList *eventWindow);
 int christianWindowCreate();
 int	christianWindowEvent(SDL_Event *event, WindowsList *eventWindow);
+int yameteWindowCreate();
+int	yameteWindowEvent(SDL_Event *event, WindowsList *eventWindow);
+int goatWindowCreate();
+int	goatWindowEvent(SDL_Event *event, WindowsList *eventWindow);
 
 typedef struct all
 {	
